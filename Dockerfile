@@ -8,7 +8,7 @@ ENV NODE_VERSION 20.16.0
 RUN groupadd -g 1000 node \
   && useradd -u 1000 -g node -s /bin/sh -m node \
   && apt-get update \
-  && apt-get install -y curl \
+  && apt-get install -y curl git \
   && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
   && apt-get update \
   && apt-get install -y \
