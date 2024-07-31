@@ -5,19 +5,20 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 ENV NODE_VERSION 20.16.0
 
-RUN addgroup -g 1000 node \
-  && adduser -u 1000 -G node -s /bin/sh -D node \
-  && apk add --no-cache \
-  libstdc++ \
-  && apk add --no-cache --virtual .build-deps \
+RUN groupadd -g 1000 node \
+  && useradd -u 1000 -g node -s /bin/sh -m node \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends \
+  libstdc++6 \
+  && apt-get install -y --no-install-recommends \
   curl \
-  && ARCH= OPENSSL_ARCH='linux*' && alpineArch="$(apk --print-arch)" \
-  && case "${alpineArch##*-}" in \
-  x86_64) ARCH='x64' CHECKSUM="40efcec63e42ca58a39cc89c99d8852bd31ea09e046966b321fd337be999651d" OPENSSL_ARCH=linux-x86_64;; \
-  x86) OPENSSL_ARCH=linux-elf;; \
-  aarch64) OPENSSL_ARCH=linux-aarch64;; \
+  && ARCH= OPENSSL_ARCH='linux*' && ubuntuArch="$(dpkg --print-architecture)" \
+  && case "${ubuntuArch}" in \
+  amd64) ARCH='x64' CHECKSUM="40efcec63e42ca58a39cc89c99d8852bd31ea09e046966b321fd337be999651d" OPENSSL_ARCH=linux-x86_64;; \
+  i386) OPENSSL_ARCH=linux-elf;; \
+  arm64) OPENSSL_ARCH=linux-aarch64;; \
   arm*) OPENSSL_ARCH=linux-armv4;; \
-  ppc64le) OPENSSL_ARCH=linux-ppc64le;; \
+  ppc64el) OPENSSL_ARCH=linux-ppc64le;; \
   s390x) OPENSSL_ARCH=linux-s390x;; \
   *) ;; \
   esac \
@@ -29,20 +30,17 @@ RUN addgroup -g 1000 node \
   && ln -s /usr/local/bin/node /usr/local/bin/nodejs; \
   else \
   echo "Building from source" \
-  # backup build
-  && apk add --no-cache --virtual .build-deps-full \
-  binutils-gold \
-  g++ \
-  gcc \
-  gnupg \
-  libgcc \
-  linux-headers \
-  make \
+  # backup build \
+  && apt-get install -y --no-install-recommends \
+  build-essential \
+  curl \
   python3 \
-  py-setuptools \
-  # use pre-existing gpg directory, see https://github.com/nodejs/docker-node/pull/1895#issuecomment-1550389150
+  g++ \
+  make \
+  gnupg2 \
+  dirmngr \
   && export GNUPGHOME="$(mktemp -d)" \
-  # gpg keys listed at https://github.com/nodejs/node#release-keys
+  # gpg keys listed at https://github.com/nodejs/node#release-keys \
   && for key in \
   4ED778F539E3634C779C87C6D7062848A1AB005C \
   141F07595B7B3FFE74309A937405533BE57C7D57 \
@@ -71,18 +69,23 @@ RUN addgroup -g 1000 node \
   && ./configure \
   && make -j$(getconf _NPROCESSORS_ONLN) V= \
   && make install \
-  && apk del .build-deps-full \
   && cd .. \
   && rm -Rf "node-v$NODE_VERSION" \
   && rm "node-v$NODE_VERSION.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt; \
   fi \
   && rm -f "node-v$NODE_VERSION-linux-$ARCH-musl.tar.xz" \
-  # Remove unused OpenSSL headers to save ~34MB. See this NodeJS issue: https://github.com/nodejs/node/issues/46451
+  # Remove unused OpenSSL headers to save space
   && find /usr/local/include/node/openssl/archs -mindepth 1 -maxdepth 1 ! -name "$OPENSSL_ARCH" -exec rm -rf {} \; \
-  && apk del .build-deps \
-  # smoke tests
+  && apt-get purge -y --auto-remove \
+  curl \
+  gnupg2 \
+  dirmngr \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/* \
+  # smoke tests \
   && node --version \
   && npm --version
+
 
 COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
