@@ -16,9 +16,4 @@ RUN groupadd -g 1000 node \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy the entrypoint script and set permissions
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-ENTRYPOINT ["docker-entrypoint.sh"]
-
-CMD [ "node" ]
+CMD [ "node","--security-opt seccomp=unconfined" ]
